@@ -1,23 +1,18 @@
 {
-  "name": "fno-telegram-breakout-alerts",
-  "version": "1.0.0",
+  "name": "node-stock-telegram-alerts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
   "description": "Personal F&O day-high/day-low Telegram alerts with NSE and Upstox fallback",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node src/index.js",
     "scan-now": "node src/index.js --scan-now",
     "run-once": "node src/index.js --run-once",
+    "monitor-today": "node src/index.js --run-once",
     "test": "node --test",
     "check": "node --check src/index.js"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "module",
-  "private": "true",
-  "engines": {
-    "node": ">=20"
-  },
-  "directories": {
-    "test": "test"
   }
 }

@@ -53,9 +53,8 @@ export class AlertService {
     }
   }
 
-  async runScheduler() {
+  async resumeSavedState(now = new Date()) {
     const saved = await this.store.load();
-    const now = new Date();
     const today = dateKey(now, this.config.timezone);
     const clock = clockValue(now, this.config.timezone);
     if (
@@ -67,7 +66,13 @@ export class AlertService {
       clock < this.config.marketCloseTime
     ) {
       await this.monitorState(saved);
+      return true;
     }
+    return false;
+  }
+
+  async runScheduler() {
+    await this.resumeSavedState();
 
     for (;;) {
       const delay = msUntilClock(this.config.snapshotTime, this.config.timezone);
@@ -88,6 +93,7 @@ export class AlertService {
   async runOnce() {
     const now = new Date();
     if (!isWeekday(now, this.config.timezone)) return;
+    if (await this.resumeSavedState(now)) return;
     const delay = scheduledRunDelay(
       this.config.snapshotTime,
       this.config.marketCloseTime,

@@ -109,11 +109,41 @@ Send a real snapshot to Telegram and exit after one quote poll:
 DRY_RUN=false ONE_POLL=true npm run scan-now
 ```
 
-Monitor immediately until stopped with `Ctrl+C`:
+### Monitor until 3:30 PM today
+
+To start or resume today's monitoring and stop automatically at `MARKET_CLOSE_TIME=15:30:00`:
+
+```bash
+npm run monitor-today
+```
+
+Keep the terminal, computer, and internet connection running. If executed before 09:30, it waits for the snapshot time. If executed between 09:30 and 15:30, it starts immediately. If executed after 15:30, it exits without starting.
+
+### Monitor only temporarily
+
+To start immediately and keep monitoring until you manually stop it:
 
 ```bash
 npm run scan-now
 ```
+
+Press `Ctrl+C` whenever you want to stop. `scan-now` is a manual testing mode and does not stop automatically at 15:30.
+
+To stop automatically at a custom time for one run, override `MARKET_CLOSE_TIME` in the command. For example, stop at 13:00 IST:
+
+```bash
+MARKET_CLOSE_TIME=13:00:00 npm run monitor-today
+```
+
+This one-command override does not modify `.env`. To change the close time permanently, edit this line in `.env`:
+
+```env
+MARKET_CLOSE_TIME=15:30:00
+```
+
+Each selected stock sends at most one crossing alert during the daily run. The service polls continuously but sends Telegram messages only when a saved high/low is crossed.
+
+### Run automatically every trading day
 
 For normal scheduled operation:
 
