@@ -11,8 +11,8 @@ export class FallbackProvider {
     primary,
     fallback = null,
     {
-      primaryName = "Primary provider",
-      fallbackName = "Fallback provider",
+      primaryName = 'Primary provider',
+      fallbackName = 'Fallback provider',
       primaryAttempts = 1,
       retryDelayMs = 0,
     } = {},
@@ -54,23 +54,28 @@ export class FallbackProvider {
       this.active = this.fallback;
       return result;
     } catch (fallbackError) {
-      throw combinedError(this.primaryName, primaryError, this.fallbackName, fallbackError);
+      throw combinedError(
+        this.primaryName,
+        primaryError,
+        this.fallbackName,
+        fallbackError,
+      );
     }
   }
 
   async getFnoEquities() {
     try {
-      return await this.tryPrimary("getFnoEquities");
+      return await this.tryPrimary('getFnoEquities');
     } catch (primaryError) {
-      return this.useFallback("getFnoEquities", primaryError);
+      return this.useFallback('getFnoEquities', primaryError);
     }
   }
 
   async getQuotes(instruments) {
     try {
-      return await this.tryPrimary("getQuotes", instruments);
+      return await this.tryPrimary('getQuotes', instruments);
     } catch (primaryError) {
-      return this.useFallback("getQuotes", primaryError, instruments);
+      return this.useFallback('getQuotes', primaryError, instruments);
     }
   }
 }

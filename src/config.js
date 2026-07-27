@@ -24,7 +24,7 @@ export function loadConfig() {
     telegramChatId: process.env.TELEGRAM_CHAT_ID,
     topCount: integer("TOP_COUNT", 10),
     pollIntervalMs: integer("POLL_INTERVAL_MS", 5_000, 3_000),
-    snapshotTime: time("SNAPSHOT_TIME", "09:30:00"),
+    snapshotTime: time("SNAPSHOT_TIME", "09:30:01"),
     marketCloseTime: time("MARKET_CLOSE_TIME", "15:30:00"),
     timezone: process.env.TIMEZONE ?? "Asia/Kolkata",
     dryRun,

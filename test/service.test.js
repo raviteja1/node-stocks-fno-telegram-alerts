@@ -11,7 +11,7 @@ test("resumes today's frozen watchlist instead of taking a new snapshot", async 
   const service = new AlertService({
     config: {
       timezone: "Asia/Kolkata",
-      snapshotTime: "09:30:00",
+      snapshotTime: "09:30:01",
       marketCloseTime: "15:30:00",
     },
     provider: {},
@@ -26,5 +26,7 @@ test("resumes today's frozen watchlist instead of taking a new snapshot", async 
   const result = await service.resumeSavedState(new Date("2026-07-22T05:30:00.000Z"));
 
   assert.equal(result, true);
-  assert.equal(resumed.watchlist[0].reference, 110);
+  assert.equal(resumed.watchlist[0].capturedHigh, 110);
+  assert.equal(resumed.watchlist[0].currentPrice, 109);
+  assert.equal(resumed.watchlist[0].alertTime, null);
 });

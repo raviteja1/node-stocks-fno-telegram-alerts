@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createWatchlist, detectCrossings, selectMovers } from "../src/strategy.js";
+import { createWatchlist, detectCrossings, markAlertSent, selectMovers } from "../src/strategy.js";
 
 const quote = (key, ltp, close, high = ltp, low = ltp) => ({ key, symbol: key, ltp, previousClose: close, high, low });
 
@@ -10,21 +10,29 @@ test("selectMovers ranks positive and negative percentage changes", () => {
   assert.equal(result.losers[0].key, "C");
 });
 
-test("gainer alerts only on a strict crossing and only once", () => {
+test("gainer alerts above the captured high and only once after marking sent", () => {
   const watchlist = createWatchlist({ gainers: [{ ...quote("A", 109, 100, 110), changePercent: 9 }], losers: [] });
-  const capturedHigh = watchlist[0].reference;
+  const capturedHigh = watchlist[0].capturedHigh;
   assert.equal(detectCrossings(watchlist, [{ key: "A", ltp: 110 }]).length, 0);
-  assert.equal(detectCrossings(watchlist, [{ key: "A", ltp: 110.05 }]).length, 1);
+  const alerts = detectCrossings(watchlist, [{ key: "A", ltp: 110.05, timestamp: "2026-07-22T05:00:00Z" }]);
+  assert.equal(alerts.length, 1);
+  markAlertSent(alerts[0]);
   assert.equal(detectCrossings(watchlist, [{ key: "A", ltp: 111 }]).length, 0);
-  assert.equal(watchlist[0].reference, capturedHigh);
+  assert.equal(watchlist[0].capturedHigh, capturedHigh);
+  assert.equal(watchlist[0].currentPrice, 111);
+  assert.equal(watchlist[0].alertSent, true);
+  assert.equal(watchlist[0].alertTime, "2026-07-22T05:00:00Z");
 });
 
-test("loser alerts only after price crosses below the snapshot low", () => {
+test("loser alerts below the captured low and only once after marking sent", () => {
   const watchlist = createWatchlist({ gainers: [], losers: [{ ...quote("A", 91, 100, 92, 90), changePercent: -9 }] });
-  const capturedLow = watchlist[0].reference;
+  const capturedLow = watchlist[0].capturedLow;
   assert.equal(detectCrossings(watchlist, [{ key: "A", ltp: 90 }]).length, 0);
-  const alerts = detectCrossings(watchlist, [{ key: "A", ltp: 89.95 }]);
+  const alerts = detectCrossings(watchlist, [{ key: "A", ltp: 89.95, timestamp: "2026-07-22T05:30:00Z" }]);
   assert.equal(alerts.length, 1);
   assert.equal(alerts[0].currentPrice, 89.95);
-  assert.equal(watchlist[0].reference, capturedLow);
+  markAlertSent(alerts[0]);
+  assert.equal(detectCrossings(watchlist, [{ key: "A", ltp: 89.8 }]).length, 0);
+  assert.equal(watchlist[0].capturedLow, capturedLow);
+  assert.equal(watchlist[0].alertTime, "2026-07-22T05:30:00Z");
 });

@@ -6,9 +6,12 @@ import { FallbackProvider } from "./providers/fallback.js";
 import { TelegramNotifier } from "./telegram.js";
 import { JsonStore } from "./store.js";
 import { AlertService } from "./service.js";
-import { marketDataSettings } from "./settings.js";
+import { Logger } from "./logger.js";
+import { TradingCalendar } from "./calendar.js";
+import { loggingSettings, marketDataSettings } from "./settings.js";
 
 loadEnvFile();
+const logger = new Logger(loggingSettings.file);
 
 try {
   const config = loadConfig();
@@ -20,6 +23,7 @@ try {
       fallbackName: "NSE",
       primaryAttempts: marketDataSettings.upstoxRetryAttempts,
       retryDelayMs: marketDataSettings.upstoxRetryDelayMs,
+      logger,
     })
     : nse;
   const service = new AlertService({
@@ -31,6 +35,11 @@ try {
       dryRun: config.dryRun,
     }),
     store: new JsonStore(config.dataDir),
+    calendar: new TradingCalendar({
+      accessToken: config.upstoxAccessToken,
+      logger,
+    }),
+    logger,
   });
 
   if (process.argv.includes("--scan-now")) await service.scanAndMonitor({ force: true });
@@ -38,5 +47,6 @@ try {
   else await service.runScheduler();
 } catch (error) {
   console.error(error.stack ?? error.message);
+  await logger.error("fatal_error", { error });
   process.exitCode = 1;
 }

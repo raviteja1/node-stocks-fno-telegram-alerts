@@ -1,6 +1,6 @@
 # F&O Telegram Breakout Alerts
 
-A small personal Node.js service that creates a fixed F&O mover watchlist at 09:30:00 IST and sends Telegram alerts when those stocks cross their saved morning high or low. It does not place orders.
+A small personal Node.js service that creates a fixed F&O mover watchlist at 09:30:01 IST and sends Telegram alerts when those stocks break their saved morning high or low. It does not place orders.
 
 Suggested GitHub repository name: **`fno-telegram-breakout-alerts`**.
 
@@ -8,20 +8,56 @@ Suggested GitHub repository name: **`fno-telegram-breakout-alerts`**.
 
 | Requirement | Implementation |
 | --- | --- |
-| Fetch top F&O gainers and losers at 09:30:00 | Weekday scheduler runs at `SNAPSHOT_TIME=09:30:00` in `Asia/Kolkata` |
+| Fetch top F&O gainers and losers at 09:30:01 | Trading-day scheduler runs at `SNAPSHOT_TIME=09:30:01` in `Asia/Kolkata` |
 | Prepare separate tables | One gainers table and one losers table are sent in the morning Telegram message |
 | Show gainers' day high | The snapshot high appears in the gainers table |
 | Show losers' day low | The snapshot low appears in the losers table |
-| Alert when a gainer crosses its high | Alerts on a strict transition from `price <= savedHigh` to `price > savedHigh` |
-| Alert when a loser crosses its low | Alerts on a strict transition from `price >= savedLow` to `price < savedLow` |
+| Alert when a gainer breaks its high | Alerts when `currentPrice > capturedHigh` and `alertSent=false` |
+| Alert when a loser breaks its low | Alerts when `currentPrice < capturedLow` and `alertSent=false` |
 | Prevent repeated alerts | Each selected stock sends at most one crossing alert per daily run |
-| Recover from restart | The day's watchlist and alert flags are persisted in `data/state.json` |
+| Persist complete watchlist state | Initial LTP, captured level, current price, alert flag, and alert time are stored in `data/state.json` |
+| Trading-day awareness | Upstox Market Holidays data is checked, with weekday fallback if that free endpoint is unavailable |
+| Operational logs | Structured JSON logs cover watchlist creation, polling, alerts, retries, fallbacks, and errors |
 | Primary market-data source | Official Upstox quotes using a read-only, one-year Analytics Token |
 | Retry and last-resort fallback | Retry Upstox three times by default, then use unofficial NSE for that operation |
 | Provider visibility | Morning and source-change Telegram messages identify Upstox or NSE |
 | Configurable list size | `TOP_COUNT` controls each table independently; `10` means 10 gainers and 10 losers |
 
 The saved high/low is the value captured at the snapshot time. It remains fixed for that day's breakout test; it is not continuously moved to the latest high or low.
+
+## Telegram breakout messages
+
+Positive:
+
+```text
+🟢 POSITIVE BREAKOUT
+
+Stock: BEL
+
+Captured High (09:30:01): ₹385.40
+
+Current Price: ₹385.75
+
+Data Source: Upstox
+
+Time: 10:14:32 AM IST
+```
+
+Negative:
+
+```text
+🔴 NEGATIVE BREAKDOWN
+
+Stock: SBIN
+
+Captured Low (09:30:01): ₹742.10
+
+Current Price: ₹741.85
+
+Data Source: NSE
+
+Time: 11:06:12 AM IST
+```
 
 ## Market-data behavior
 
@@ -104,7 +140,7 @@ TELEGRAM_CHAT_ID=@replace_with_channel_username
 
 TOP_COUNT=10
 POLL_INTERVAL_MS=5000
-SNAPSHOT_TIME=09:30:00
+SNAPSHOT_TIME=09:30:01
 MARKET_CLOSE_TIME=15:30:00
 TIMEZONE=Asia/Kolkata
 DRY_RUN=true
@@ -131,6 +167,36 @@ After NSE handles one failed operation, the next poll starts with Upstox again.
 - Any whole number of at least 1 is accepted, subject to the number of valid quotes returned by the provider.
 
 Never commit `.env`. It is already excluded by `.gitignore`.
+
+## Watchlist state and logs
+
+The fixed daily state is stored in `data/state.json`. Each row contains:
+
+```json
+{
+  "symbol": "BEL",
+  "side": "gainer",
+  "changePercent": 2.5,
+  "initialLtp": 384.8,
+  "capturedHigh": 385.4,
+  "capturedLow": null,
+  "currentPrice": 385.75,
+  "alertSent": true,
+  "alertTime": "2026-07-22T04:44:32.000Z"
+}
+```
+
+The captured high/low and selected symbols never change during that trading day. Only `currentPrice`, `alertSent`, and `alertTime` can change.
+
+Structured JSON logs are written to `logs/app.log`. The log location and retry settings are normal source settings in `src/settings.js`, not environment variables. Log events include:
+
+- `watchlist_created`
+- `monitoring_started` / `monitoring_stopped`
+- `price_poll`
+- `alert_generated` / `alert_delivery_failed`
+- `market_data_primary_attempt_failed`
+- `market_data_fallback_used`
+- `monitoring_error` / `scheduled_run_failed`
 
 ## Testing
 
@@ -160,17 +226,17 @@ To start or resume today's monitoring and stop automatically at `MARKET_CLOSE_TI
 npm run monitor-today
 ```
 
-Keep the terminal, computer, and internet connection running. If executed before 09:30, it waits for the snapshot time. If executed between 09:30 and 15:30, it starts immediately. If executed after 15:30, it exits without starting.
+Keep the terminal, computer, and internet connection running. If executed before 09:30:01, it waits for the snapshot time. If executed between 09:30:01 and 15:30, it starts immediately. If executed after 15:30, it exits without starting.
 
 ### Monitor only temporarily
 
-To start immediately and keep monitoring until you manually stop it:
+To start immediately and monitor until market close, or until you stop it manually:
 
 ```bash
 npm run scan-now
 ```
 
-Press `Ctrl+C` whenever you want to stop. `scan-now` is a manual testing mode and does not stop automatically at 15:30.
+Press `Ctrl+C` whenever you want to stop early. `scan-now` also stops automatically at 15:30.
 
 To stop automatically at a custom time for one run, override `MARKET_CLOSE_TIME` in the command. For example, stop at 13:00 IST:
 
@@ -194,7 +260,7 @@ For normal scheduled operation:
 npm start
 ```
 
-The process must already be running at 09:30:00 IST. At that time, each selected gainer's day high and each selected loser's day low are saved as fixed references and are not updated for the rest of the day. If the process restarts later during market hours, it resumes the valid watchlist saved earlier that day.
+The process must already be running at 09:30:01 IST. At that time, each selected gainer's day high and each selected loser's day low are saved as fixed references and are not updated for the rest of the day. If the process restarts later during market hours, it resumes the valid watchlist saved earlier that day.
 
 ## Continuous local operation with PM2
 
@@ -323,7 +389,7 @@ TELEGRAM_BOT_TOKEN=your_real_bot_token
 TELEGRAM_CHAT_ID=@your_real_channel
 TOP_COUNT=10
 POLL_INTERVAL_MS=5000
-SNAPSHOT_TIME=09:30:00
+SNAPSHOT_TIME=09:30:01
 MARKET_CLOSE_TIME=15:30:00
 TIMEZONE=Asia/Kolkata
 DRY_RUN=false
@@ -335,7 +401,7 @@ DATA_DIR=./data
 9. Enable CI/CD so new GitHub commits build the next job image.
 10. Enable the schedule.
 
-The cron launches at 09:30:00 IST and the application takes the snapshot immediately. If the platform launches it late, the snapshot is necessarily taken late rather than waiting until the next day.
+The cron launches at 09:30:00 IST and the application waits internally until 09:30:01. If the platform launches it late, the snapshot is necessarily taken late rather than waiting until the next day.
 
 For a manual dry-run test outside the normal schedule, temporarily change the job command to `npm run scan-now`, add `ONE_POLL=true` and `DRY_RUN=true`, and trigger the job manually. Restore `npm run run-once`, remove `ONE_POLL`, and set `DRY_RUN=false` afterward.
 
@@ -461,7 +527,7 @@ sudo docker compose down
 
 This application is a continuously running background process, not a website. Many free web services sleep when there are no incoming HTTP requests, and free background workers are uncommon.
 
-GitHub Actions is free for standard runners in public repositories, but scheduled jobs can be delayed under load and inactive scheduled workflows can be disabled. That makes it unsuitable when the 09:30:00 snapshot time matters. A small VM or an always-on local computer is safer.
+GitHub Actions is free for standard runners in public repositories, but scheduled jobs can be delayed under load and inactive scheduled workflows can be disabled. That makes it unsuitable when the 09:30:01 snapshot time matters. A small VM or an always-on local computer is safer.
 
 ## Effort and maintenance
 
@@ -471,7 +537,7 @@ Ongoing maintenance is small but not zero: the Upstox Analytics Token eventually
 
 ## Limitations
 
-- Weekends are skipped, but an explicit NSE holiday calendar is not yet integrated. On an exchange holiday, an unofficial NSE response could contain stale data.
+- Weekends and Upstox-reported NFO holidays are skipped. If the free holiday endpoint is unavailable, the service logs the failure and temporarily falls back to weekday-only logic.
 - While NSE fallback is active, a selected stock is evaluated only when it is present in NSE's returned mover data. Upstox provides complete fixed-watchlist polling.
 - REST polling detects crossings at the configured interval; it is not tick-by-tick exchange data.
 - Alerts are informational and are not investment advice.

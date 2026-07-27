@@ -31,7 +31,7 @@ test("derives F&O equities and returns quotes with symbol-based keys", async () 
           symbol: "RELIANCE",
           last_price: 1421,
           net_change: 21,
-          timestamp: "2026-07-22T09:30:00+05:30",
+          timestamp: "2026-07-22T09:30:01+05:30",
           ohlc: { open: 1410, high: 1425.5, low: 1405.25, close: 1421 },
         },
       },

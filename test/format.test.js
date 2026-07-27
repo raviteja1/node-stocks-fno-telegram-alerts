@@ -22,17 +22,35 @@ test("snapshot contains separate high and low mover tables", () => {
 });
 
 test("formats positive and negative alerts with the frozen day level", () => {
-  const positive = formatAlert({ side: "gainer", symbol: "GAIN", reference: 103, currentPrice: 103.05 });
-  const negative = formatAlert({ side: "loser", symbol: "LOSS", reference: 97, currentPrice: 96.95 });
+  const positive = formatAlert({
+    side: "gainer",
+    symbol: "GAIN",
+    reference: 103,
+    currentPrice: 103.05,
+    timestamp: "2026-07-22T05:00:30.000Z",
+    dataSource: "Upstox",
+  });
+  const negative = formatAlert({
+    side: "loser",
+    symbol: "LOSS",
+    reference: 97,
+    currentPrice: 96.95,
+    timestamp: "2026-07-22T05:30:30.000Z",
+    dataSource: "NSE",
+  });
 
-  assert.match(positive, /Positive side/);
-  assert.match(positive, /Stock name: <b>GAIN<\/b>/);
-  assert.match(positive, /Day high: ₹103\.00/);
-  assert.match(positive, /Current price: ₹103\.05/);
-  assert.match(negative, /Negative side/);
-  assert.match(negative, /Stock name: <b>LOSS<\/b>/);
-  assert.match(negative, /Day low: ₹97\.00/);
-  assert.match(negative, /Current price: ₹96\.95/);
+  assert.match(positive, /🟢 <b>POSITIVE BREAKOUT<\/b>/);
+  assert.match(positive, /Stock: <b>GAIN<\/b>/);
+  assert.match(positive, /Captured High \(09:30:01\): ₹103\.00/);
+  assert.match(positive, /Current Price: ₹103\.05/);
+  assert.match(positive, /Data Source: <b>Upstox<\/b>/);
+  assert.match(positive, /Time: 10:30:30 AM IST/);
+  assert.match(negative, /🔴 <b>NEGATIVE BREAKDOWN<\/b>/);
+  assert.match(negative, /Stock: <b>LOSS<\/b>/);
+  assert.match(negative, /Captured Low \(09:30:01\): ₹97\.00/);
+  assert.match(negative, /Current Price: ₹96\.95/);
+  assert.match(negative, /Data Source: <b>NSE<\/b>/);
+  assert.match(negative, /Time: 11:00:30 AM IST/);
 });
 
 test("formats provider status changes", () => {

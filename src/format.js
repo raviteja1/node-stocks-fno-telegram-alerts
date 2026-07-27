@@ -4,6 +4,18 @@ function escapeHtml(value) {
   return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
 
+function timeInZone(value, timezone) {
+  const parsed = new Date(value);
+  const date = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  }).format(date);
+}
+
 function table(items, side) {
   const level = side === "gainer" ? "HIGH" : "LOW ";
   const rows = ["SYMBOL       CHANGE       LTP      " + level];
@@ -37,13 +49,19 @@ export function formatDataSourceStatus(dataSource) {
     : "✅ <b>Market data source:</b> Upstox\nUpstox is active again.";
 }
 
-export function formatAlert(alert) {
+export function formatAlert(alert, timezone = "Asia/Kolkata") {
   const high = alert.side === "gainer";
   return [
-    high ? "🚀 <b>Positive side</b>" : "🔻 <b>Negative side</b>",
+    high ? "🟢 <b>POSITIVE BREAKOUT</b>" : "🔴 <b>NEGATIVE BREAKDOWN</b>",
     "",
-    `Stock name: <b>${escapeHtml(alert.symbol)}</b>`,
-    `Day ${high ? "high" : "low"}: ₹${price.format(alert.reference)}`,
-    `Current price: ₹${price.format(alert.currentPrice)}`,
+    `Stock: <b>${escapeHtml(alert.symbol)}</b>`,
+    "",
+    `Captured ${high ? "High" : "Low"} (09:30:01): ₹${price.format(alert.reference)}`,
+    "",
+    `Current Price: ₹${price.format(alert.currentPrice)}`,
+    "",
+    `Data Source: <b>${escapeHtml(alert.dataSource ?? "Unknown")}</b>`,
+    "",
+    `Time: ${timeInZone(alert.timestamp, timezone)} IST`,
   ].join("\n");
 }
