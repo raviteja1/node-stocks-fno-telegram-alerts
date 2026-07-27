@@ -14,6 +14,7 @@ async function checkedFetch(url, options = {}) {
 
 export class UpstoxProvider {
   constructor(accessToken) {
+    this.source = "Upstox";
     this.accessToken = accessToken;
     this.instruments = null;
     this.bySymbol = null;

@@ -17,7 +17,8 @@ Suggested GitHub repository name: **`fno-telegram-breakout-alerts`**.
 | Prevent repeated alerts | Each selected stock sends at most one crossing alert per daily run |
 | Recover from restart | The day's watchlist and alert flags are persisted in `data/state.json` |
 | Primary market-data source | Official Upstox quotes using a read-only, one-year Analytics Token |
-| Last-resort fallback | Unofficial NSE website JSON is used if Upstox is unavailable or no token is configured |
+| Retry and last-resort fallback | Retry Upstox three times by default, then use unofficial NSE for that operation |
+| Provider visibility | Morning and source-change Telegram messages identify Upstox or NSE |
 | Configurable list size | `TOP_COUNT` controls each table independently; `10` means 10 gainers and 10 losers |
 
 The saved high/low is the value captured at the snapshot time. It remains fixed for that day's breakout test; it is not continuously moved to the latest high or low.
@@ -28,13 +29,44 @@ Provider priority is fixed in the source code and cannot be changed with an envi
 
 1. If `UPSTOX_ACCESS_TOKEN` is configured, start every daily run with official Upstox market quotes.
 2. Use Upstox to build the F&O universe, calculate the top gainers and losers, and monitor the fixed watchlist.
-3. If Upstox fails because of a timeout, API error, invalid response, or another provider error, switch to unofficial NSE data as the final fallback for that run.
-4. If no Upstox token is configured, use NSE directly.
-5. Start with Upstox again on the following daily run whenever the token is present.
+3. For every market-data operation, retry Upstox three times, waiting one second between attempts. These values are defined in `src/settings.js`.
+4. Only after all Upstox attempts fail, use unofficial NSE once for that operation.
+5. On the next price poll, try Upstox first again. The service does not remain permanently on NSE.
+6. If no Upstox token is configured, use NSE directly.
 
 Both providers use stock symbols as internal IDs, allowing a saved Upstox watchlist to switch to NSE without losing its saved high/low or duplicate-alert state.
 
 NSE is unofficial and can change or block requests. Its mover response only contains stocks currently present in its top lists, so some saved stocks may be missing while NSE fallback is active. Upstox full quotes do not have that limitation and remain the preferred provider.
+
+### How to confirm which provider is active
+
+The morning Telegram snapshot contains one of these lines:
+
+```text
+Data source: Upstox
+```
+
+or:
+
+```text
+Data source: NSE
+```
+
+If all Upstox retries fail during monitoring, Telegram sends:
+
+```text
+Market data source: NSE fallback
+Upstox retries failed. The next poll will retry Upstox first.
+```
+
+When Upstox works again, Telegram sends:
+
+```text
+Market data source: Upstox
+Upstox is active again.
+```
+
+These messages are also printed in the terminal when `DRY_RUN=true`.
 
 ## Requirements
 
@@ -80,6 +112,17 @@ DATA_DIR=./data
 ```
 
 There is no provider-mode setting. The application always selects Upstox first when `UPSTOX_ACCESS_TOKEN` exists. NSE is only the final fallback when Upstox fails or the token is missing.
+
+Retry configuration is intentionally kept out of `.env`. Edit `src/settings.js` if it needs to change:
+
+```js
+export const marketDataSettings = Object.freeze({
+  upstoxRetryAttempts: 3,
+  upstoxRetryDelayMs: 1_000,
+});
+```
+
+After NSE handles one failed operation, the next poll starts with Upstox again.
 
 `TOP_COUNT` is the number of stocks in each section, not the combined total:
 

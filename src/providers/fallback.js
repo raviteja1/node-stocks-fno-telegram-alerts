@@ -4,41 +4,73 @@ function combinedError(primaryName, primaryError, fallbackName, fallbackError) {
   );
 }
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export class FallbackProvider {
-  constructor(primary, fallback = null, { primaryName = "Primary provider", fallbackName = "Fallback provider" } = {}) {
+  constructor(
+    primary,
+    fallback = null,
+    {
+      primaryName = "Primary provider",
+      fallbackName = "Fallback provider",
+      primaryAttempts = 1,
+      retryDelayMs = 0,
+    } = {},
+  ) {
     this.primary = primary;
     this.fallback = fallback;
     this.active = primary;
     this.primaryName = primaryName;
     this.fallbackName = fallbackName;
+    this.primaryAttempts = primaryAttempts;
+    this.retryDelayMs = retryDelayMs;
+  }
+
+  get source() {
+    return this.active === this.primary ? this.primaryName : this.fallbackName;
+  }
+
+  async tryPrimary(method, ...args) {
+    let lastError;
+    for (let attempt = 1; attempt <= this.primaryAttempts; attempt += 1) {
+      try {
+        const result = await this.primary[method](...args);
+        this.active = this.primary;
+        return result;
+      } catch (error) {
+        lastError = error;
+        if (attempt < this.primaryAttempts && this.retryDelayMs > 0) {
+          await sleep(this.retryDelayMs);
+        }
+      }
+    }
+    throw lastError;
+  }
+
+  async useFallback(method, primaryError, ...args) {
+    if (!this.fallback) throw primaryError;
+    try {
+      const result = await this.fallback[method](...args);
+      this.active = this.fallback;
+      return result;
+    } catch (fallbackError) {
+      throw combinedError(this.primaryName, primaryError, this.fallbackName, fallbackError);
+    }
   }
 
   async getFnoEquities() {
-    this.active = this.primary;
     try {
-      return await this.primary.getFnoEquities();
+      return await this.tryPrimary("getFnoEquities");
     } catch (primaryError) {
-      if (!this.fallback) throw primaryError;
-      this.active = this.fallback;
-      try {
-        return await this.fallback.getFnoEquities();
-      } catch (fallbackError) {
-        throw combinedError(this.primaryName, primaryError, this.fallbackName, fallbackError);
-      }
+      return this.useFallback("getFnoEquities", primaryError);
     }
   }
 
   async getQuotes(instruments) {
     try {
-      return await this.active.getQuotes(instruments);
+      return await this.tryPrimary("getQuotes", instruments);
     } catch (primaryError) {
-      if (this.active !== this.primary || !this.fallback) throw primaryError;
-      this.active = this.fallback;
-      try {
-        return await this.fallback.getQuotes(instruments);
-      } catch (fallbackError) {
-        throw combinedError(this.primaryName, primaryError, this.fallbackName, fallbackError);
-      }
+      return this.useFallback("getQuotes", primaryError, instruments);
     }
   }
 }

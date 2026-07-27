@@ -27,6 +27,7 @@ function setCookieValues(headers) {
 
 export class NseProvider {
   constructor() {
+    this.source = "NSE";
     this.cookies = new Map();
     this.initialQuotes = null;
   }

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { formatAlert, formatSnapshot } from "../src/format.js";
+import { formatAlert, formatDataSourceStatus, formatSnapshot } from "../src/format.js";
 
 test("snapshot contains separate high and low mover tables", () => {
   const message = formatSnapshot(
@@ -9,8 +9,10 @@ test("snapshot contains separate high and low mover tables", () => {
       losers: [{ symbol: "LOSS", changePercent: -2.5, ltp: 98, high: 101, low: 97 }],
     },
     "2026-07-22T04:00:30.000Z",
+    "Upstox",
   );
 
+  assert.match(message, /Data source:<\/b> Upstox/);
   assert.match(message, /Top gainers/);
   assert.match(message, /Top losers/);
   assert.match(message, /HIGH/);
@@ -31,4 +33,10 @@ test("formats positive and negative alerts with the frozen day level", () => {
   assert.match(negative, /Stock name: <b>LOSS<\/b>/);
   assert.match(negative, /Day low: ₹97\.00/);
   assert.match(negative, /Current price: ₹96\.95/);
+});
+
+test("formats provider status changes", () => {
+  assert.match(formatDataSourceStatus("NSE"), /NSE fallback/);
+  assert.match(formatDataSourceStatus("NSE"), /next poll will retry Upstox/i);
+  assert.match(formatDataSourceStatus("Upstox"), /Upstox is active again/);
 });

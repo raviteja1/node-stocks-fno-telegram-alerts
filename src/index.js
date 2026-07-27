@@ -6,6 +6,7 @@ import { FallbackProvider } from "./providers/fallback.js";
 import { TelegramNotifier } from "./telegram.js";
 import { JsonStore } from "./store.js";
 import { AlertService } from "./service.js";
+import { marketDataSettings } from "./settings.js";
 
 loadEnvFile();
 
@@ -15,9 +16,11 @@ try {
   const upstox = config.upstoxAccessToken ? new UpstoxProvider(config.upstoxAccessToken) : null;
   const provider = upstox
     ? new FallbackProvider(upstox, nse, {
-        primaryName: "Upstox",
-        fallbackName: "NSE",
-      })
+      primaryName: "Upstox",
+      fallbackName: "NSE",
+      primaryAttempts: marketDataSettings.upstoxRetryAttempts,
+      retryDelayMs: marketDataSettings.upstoxRetryDelayMs,
+    })
     : nse;
   const service = new AlertService({
     config,

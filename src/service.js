@@ -1,5 +1,5 @@
 import { createWatchlist, detectCrossings, selectMovers } from "./strategy.js";
-import { formatAlert, formatSnapshot } from "./format.js";
+import { formatAlert, formatDataSourceStatus, formatSnapshot } from "./format.js";
 import { clockValue, dateKey, isWeekday, msUntilClock, scheduledRunDelay } from "./time.js";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -9,6 +9,18 @@ export class AlertService {
   constructor({ config, provider, notifier, store }) {
     Object.assign(this, { config, provider, notifier, store });
     this.running = false;
+    this.lastDataSource = null;
+  }
+
+  dataSource() {
+    return this.provider.source ?? "Unknown";
+  }
+
+  async notifyDataSourceChange() {
+    const source = this.dataSource();
+    if (source === this.lastDataSource) return;
+    await this.notifier.send(formatDataSourceStatus(source));
+    this.lastDataSource = source;
   }
 
   async scanAndMonitor({ force = false } = {}) {
@@ -32,7 +44,8 @@ export class AlertService {
 
     const state = { day, capturedAt: new Date().toISOString(), watchlist: createWatchlist(movers) };
     await this.store.save(state);
-    await this.notifier.send(formatSnapshot(movers, state.capturedAt));
+    this.lastDataSource = this.dataSource();
+    await this.notifier.send(formatSnapshot(movers, state.capturedAt, this.lastDataSource));
     await this.monitorState(state, { force });
   }
 
@@ -43,6 +56,7 @@ export class AlertService {
       await sleep(this.config.pollIntervalMs);
       try {
         const current = await this.provider.getQuotes(state.watchlist);
+        await this.notifyDataSourceChange();
         const alerts = detectCrossings(state.watchlist, current);
         for (const alert of alerts) await this.notifier.send(formatAlert(alert));
         if (alerts.length) await this.store.save(state);

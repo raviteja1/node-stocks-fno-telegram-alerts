@@ -41,3 +41,58 @@ test("identifies both providers when primary and fallback fail", async () => {
 
   await assert.rejects(provider.getFnoEquities(), /Upstox failed: timeout; NSE fallback failed: 403/);
 });
+
+test("retries Upstox before using NSE", async () => {
+  let upstoxCalls = 0;
+  let nseCalls = 0;
+  const primary = {
+    getFnoEquities: async () => {
+      upstoxCalls += 1;
+      if (upstoxCalls < 3) throw new Error("temporary failure");
+      return instruments;
+    },
+  };
+  const fallback = {
+    getFnoEquities: async () => {
+      nseCalls += 1;
+      return instruments;
+    },
+  };
+  const provider = new FallbackProvider(primary, fallback, {
+    primaryName: "Upstox",
+    fallbackName: "NSE",
+    primaryAttempts: 3,
+  });
+
+  assert.deepEqual(await provider.getFnoEquities(), instruments);
+  assert.equal(upstoxCalls, 3);
+  assert.equal(nseCalls, 0);
+  assert.equal(provider.source, "Upstox");
+});
+
+test("tries Upstox first again on the poll after an NSE fallback", async () => {
+  let upstoxAvailable = false;
+  let upstoxCalls = 0;
+  const primary = {
+    getQuotes: async () => {
+      upstoxCalls += 1;
+      if (!upstoxAvailable) throw new Error("temporary failure");
+      return quotes;
+    },
+  };
+  const fallback = { getQuotes: async () => quotes };
+  const provider = new FallbackProvider(primary, fallback, {
+    primaryName: "Upstox",
+    fallbackName: "NSE",
+    primaryAttempts: 2,
+  });
+
+  await provider.getQuotes(instruments);
+  assert.equal(provider.source, "NSE");
+  assert.equal(upstoxCalls, 2);
+
+  upstoxAvailable = true;
+  await provider.getQuotes(instruments);
+  assert.equal(provider.source, "Upstox");
+  assert.equal(upstoxCalls, 3);
+});

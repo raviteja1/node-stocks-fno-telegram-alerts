@@ -15,16 +15,26 @@ function table(items, side) {
   return rows.join("\n");
 }
 
-export function formatSnapshot(movers, capturedAt) {
+export function formatSnapshot(movers, capturedAt, dataSource) {
   return [
     `<b>F&amp;O morning snapshot</b>`,
     escapeHtml(capturedAt),
+    dataSource ? `<b>Data source:</b> ${escapeHtml(dataSource)}` : null,
     "",
     "<b>Top gainers</b>",
     `<pre>${escapeHtml(table(movers.gainers, "gainer"))}</pre>`,
     "<b>Top losers</b>",
     `<pre>${escapeHtml(table(movers.losers, "loser"))}</pre>`,
-  ].join("\n");
+  ]
+    .filter((line) => line !== null)
+    .join("\n");
+}
+
+export function formatDataSourceStatus(dataSource) {
+  const fallback = dataSource === "NSE";
+  return fallback
+    ? "⚠️ <b>Market data source:</b> NSE fallback\nUpstox retries failed. The next poll will retry Upstox first."
+    : "✅ <b>Market data source:</b> Upstox\nUpstox is active again.";
 }
 
 export function formatAlert(alert) {
