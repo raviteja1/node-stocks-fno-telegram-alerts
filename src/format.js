@@ -27,8 +27,9 @@ function table(items, side) {
   return rows.join("\n");
 }
 
-export function formatSnapshot(movers, capturedAt, dataSource) {
+export function formatSnapshot(movers, capturedAt, dataSource, testMode = false) {
   return [
+    testMode ? "⚠️ <b>TEST SNAPSHOT — NOT THE 09:30:01 OFFICIAL WATCHLIST</b>" : null,
     `<b>F&amp;O morning snapshot</b>`,
     escapeHtml(capturedAt),
     dataSource ? `<b>Data source:</b> ${escapeHtml(dataSource)}` : null,
@@ -51,12 +52,20 @@ export function formatDataSourceStatus(dataSource) {
 
 export function formatAlert(alert, timezone = "Asia/Kolkata") {
   const high = alert.side === "gainer";
+  const official = alert.officialSnapshot === true;
+  const referenceTime = escapeHtml(alert.referenceTime ?? (official ? "09:30:01" : "unknown test time"));
   return [
-    high ? "🟢 <b>POSITIVE BREAKOUT</b>" : "🔴 <b>NEGATIVE BREAKDOWN</b>",
+    official
+      ? high
+        ? "🟢 <b>POSITIVE BREAKOUT</b>"
+        : "🔴 <b>NEGATIVE BREAKDOWN</b>"
+      : high
+        ? "🧪 <b>TEST POSITIVE BREAKOUT</b>"
+        : "🧪 <b>TEST NEGATIVE BREAKDOWN</b>",
     "",
     `Stock: <b>${escapeHtml(alert.symbol)}</b>`,
     "",
-    `Captured ${high ? "High" : "Low"} (09:30:01): ₹${price.format(alert.reference)}`,
+    `Captured ${high ? "High" : "Low"} (${referenceTime}${official ? "" : " TEST"}): ₹${price.format(alert.reference)}`,
     "",
     `Current Price: ₹${price.format(alert.currentPrice)}`,
     "",

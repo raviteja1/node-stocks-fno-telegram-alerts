@@ -39,6 +39,13 @@ export class AlertService {
 
     this.running = true;
     const day = dateKey(now, this.config.timezone);
+    const snapshotRequestedAt = now.toISOString();
+    const snapshotRequestTime = clockValue(now, this.config.timezone);
+    if (!force && snapshotRequestTime !== this.config.snapshotTime) {
+      throw new Error(
+        `Official snapshot must start at ${this.config.snapshotTime} IST; request started at ${snapshotRequestTime} IST`,
+      );
+    }
     const instruments = await this.provider.getFnoEquities();
     if (instruments.length === 0) throw new Error("F&O equity universe is empty");
     const quotes = await this.provider.getQuotes(instruments);
@@ -50,8 +57,15 @@ export class AlertService {
       );
     }
 
-    const state = { day, capturedAt: new Date().toISOString(), watchlist: createWatchlist(movers) };
-    await this.store.save(state);
+    const state = {
+      day,
+      snapshotTime: this.config.snapshotTime,
+      snapshotRequestedAt,
+      capturedAt: new Date().toISOString(),
+      officialSnapshot: !force,
+      watchlist: createWatchlist(movers),
+    };
+    if (!force) await this.store.save(state);
     await this.logger?.info("watchlist_created", {
       day,
       capturedAt: state.capturedAt,
@@ -59,13 +73,15 @@ export class AlertService {
       gainers: movers.gainers.map((item) => item.symbol),
       losers: movers.losers.map((item) => item.symbol),
       countPerSide: this.config.topCount,
+      officialSnapshot: state.officialSnapshot,
+      snapshotRequestTime,
     });
     this.lastDataSource = this.dataSource();
-    await this.notifier.send(formatSnapshot(movers, state.capturedAt, this.lastDataSource));
-    await this.monitorState(state, { force });
+    await this.notifier.send(formatSnapshot(movers, state.capturedAt, this.lastDataSource, force));
+    await this.monitorState(state, { force, persistState: !force });
   }
 
-  async monitorState(state, { force = false } = {}) {
+  async monitorState(state, { force = false, persistState = true } = {}) {
     this.running = true;
     normalizeWatchlist(state.watchlist);
     await this.logger?.info("monitoring_started", {
@@ -90,11 +106,22 @@ export class AlertService {
         const alerts = detectCrossings(state.watchlist, current);
         for (const alert of alerts) {
           try {
+            const referenceTime = state.officialSnapshot
+              ? state.snapshotTime
+              : clockValue(new Date(state.snapshotRequestedAt), this.config.timezone);
             await this.notifier.send(
-              formatAlert({ ...alert, dataSource: this.dataSource() }, this.config.timezone),
+              formatAlert(
+                {
+                  ...alert,
+                  dataSource: this.dataSource(),
+                  officialSnapshot: state.officialSnapshot === true,
+                  referenceTime,
+                },
+                this.config.timezone,
+              ),
             );
             markAlertSent(alert);
-            await this.store.save(state);
+            if (persistState) await this.store.save(state);
             await this.logger?.info("alert_generated", {
               day: state.day,
               side: alert.side,
@@ -102,6 +129,8 @@ export class AlertService {
               capturedLevel: alert.reference,
               currentPrice: alert.currentPrice,
               alertTime: alert.timestamp,
+              officialSnapshot: state.officialSnapshot,
+              referenceTime,
             });
           } catch (error) {
             await this.logger?.error("alert_delivery_failed", {
@@ -131,8 +160,26 @@ export class AlertService {
     const saved = await this.store.load();
     const today = dateKey(now, this.config.timezone);
     const clock = clockValue(now, this.config.timezone);
+    const requestedAt = saved?.snapshotRequestedAt ? new Date(saved.snapshotRequestedAt) : null;
+    const validRequestedAt =
+      requestedAt &&
+      !Number.isNaN(requestedAt.getTime()) &&
+      clockValue(requestedAt, this.config.timezone) === this.config.snapshotTime;
+    const validOfficialSnapshot =
+      saved?.officialSnapshot === true &&
+      saved?.snapshotTime === this.config.snapshotTime &&
+      validRequestedAt;
+    if (saved?.day === today && !validOfficialSnapshot) {
+      await this.logger?.warn("saved_state_ignored", {
+        day: today,
+        reason: "not-an-official-09:30:01-snapshot",
+        capturedAt: saved.capturedAt,
+        snapshotRequestedAt: saved.snapshotRequestedAt,
+      });
+    }
     if (
       saved?.day === today &&
+      validOfficialSnapshot &&
       Array.isArray(saved.watchlist) &&
       saved.watchlist.length > 0 &&
       (await this.isTradingDay(now)) &&
@@ -170,6 +217,22 @@ export class AlertService {
     const now = new Date();
     if (!(await this.isTradingDay(now))) return;
     if (await this.resumeSavedState(now)) return;
+    const currentClock = clockValue(now, this.config.timezone);
+    if (currentClock > this.config.snapshotTime && currentClock < this.config.marketCloseTime) {
+      await this.logger?.error("snapshot_window_missed", {
+        expected: this.config.snapshotTime,
+        actual: currentClock,
+        action: "No late official watchlist was created",
+      });
+      try {
+        await this.notifier.send(
+          `<b>Alert service did not start</b>\nOfficial ${escapeHtml(this.config.snapshotTime)} snapshot was missed. No late high/low references were created.`,
+        );
+      } catch {
+        // The error is already recorded in the local structured log.
+      }
+      return;
+    }
     const delay = scheduledRunDelay(
       this.config.snapshotTime,
       this.config.marketCloseTime,

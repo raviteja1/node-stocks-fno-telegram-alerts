@@ -21,6 +21,21 @@ test("snapshot contains separate high and low mover tables", () => {
   assert.match(message, /97\.00/);
 });
 
+test("labels an off-schedule scan as a test snapshot", () => {
+  const message = formatSnapshot(
+    {
+      gainers: [{ symbol: "GAIN", changePercent: 2.5, ltp: 102, high: 103, low: 99 }],
+      losers: [{ symbol: "LOSS", changePercent: -2.5, ltp: 98, high: 101, low: 97 }],
+    },
+    "2026-07-22T09:00:00.000Z",
+    "Upstox",
+    true,
+  );
+
+  assert.match(message, /TEST SNAPSHOT/);
+  assert.match(message, /NOT THE 09:30:01 OFFICIAL WATCHLIST/);
+});
+
 test("formats positive and negative alerts with the frozen day level", () => {
   const positive = formatAlert({
     side: "gainer",
@@ -29,6 +44,8 @@ test("formats positive and negative alerts with the frozen day level", () => {
     currentPrice: 103.05,
     timestamp: "2026-07-22T05:00:30.000Z",
     dataSource: "Upstox",
+    officialSnapshot: true,
+    referenceTime: "09:30:01",
   });
   const negative = formatAlert({
     side: "loser",
@@ -37,6 +54,8 @@ test("formats positive and negative alerts with the frozen day level", () => {
     currentPrice: 96.95,
     timestamp: "2026-07-22T05:30:30.000Z",
     dataSource: "NSE",
+    officialSnapshot: true,
+    referenceTime: "09:30:01",
   });
 
   assert.match(positive, /🟢 <b>POSITIVE BREAKOUT<\/b>/);
@@ -51,6 +70,23 @@ test("formats positive and negative alerts with the frozen day level", () => {
   assert.match(negative, /Current Price: ₹96\.95/);
   assert.match(negative, /Data Source: <b>NSE<\/b>/);
   assert.match(negative, /Time: 11:00:30 AM IST/);
+});
+
+test("never labels a late test level as the official 09:30:01 level", () => {
+  const message = formatAlert({
+    side: "gainer",
+    symbol: "TEST",
+    reference: 103,
+    currentPrice: 103.05,
+    timestamp: "2026-07-22T09:12:45.000Z",
+    dataSource: "Upstox",
+    officialSnapshot: false,
+    referenceTime: "14:42:42",
+  });
+
+  assert.match(message, /TEST POSITIVE BREAKOUT/);
+  assert.match(message, /Captured High \(14:42:42 TEST\)/);
+  assert.doesNotMatch(message, /Captured High \(09:30:01\)/);
 });
 
 test("formats provider status changes", () => {
