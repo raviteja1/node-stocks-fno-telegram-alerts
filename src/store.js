@@ -3,7 +3,9 @@ import path from "node:path";
 
 export class JsonStore {
   constructor(dataDir) {
+    this.dataDir = dataDir;
     this.file = path.join(dataDir, "state.json");
+    this.snapshotsDir = path.join(dataDir, "snapshots");
   }
 
   async load() {
@@ -16,9 +18,20 @@ export class JsonStore {
   }
 
   async save(state) {
-    await fs.mkdir(path.dirname(this.file), { recursive: true });
-    const temp = `${this.file}.tmp`;
-    await fs.writeFile(temp, JSON.stringify(state, null, 2));
-    await fs.rename(temp, this.file);
+    await this.writeJson(this.file, state);
+
+    if (state?.officialSnapshot === true) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(state.day ?? "")) {
+        throw new Error("Official snapshot state requires a YYYY-MM-DD day");
+      }
+      await this.writeJson(path.join(this.snapshotsDir, `${state.day}.json`), state);
+    }
+  }
+
+  async writeJson(file, value) {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    const temp = `${file}.tmp`;
+    await fs.writeFile(temp, JSON.stringify(value, null, 2));
+    await fs.rename(temp, file);
   }
 }

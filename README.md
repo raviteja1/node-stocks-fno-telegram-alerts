@@ -15,7 +15,7 @@ Suggested GitHub repository name: **`fno-telegram-breakout-alerts`**.
 | Alert when a gainer breaks its high | Alerts when `currentPrice > capturedHigh` and `alertSent=false` |
 | Alert when a loser breaks its low | Alerts when `currentPrice < capturedLow` and `alertSent=false` |
 | Prevent repeated alerts | Each selected stock sends at most one crossing alert per daily run |
-| Persist complete watchlist state | Initial LTP, captured level, current price, alert flag, and alert time are stored in `data/state.json` |
+| Persist complete watchlist state | The active state is stored in `data/state.json`, and every official trading day has its own `data/snapshots/YYYY-MM-DD.json` file |
 | Trading-day awareness | Upstox Market Holidays data is checked, with weekday fallback if that free endpoint is unavailable |
 | Operational logs | Structured JSON logs cover watchlist creation, polling, alerts, retries, fallbacks, and errors |
 | Primary market-data source | Official Upstox quotes using a read-only, one-year Analytics Token |
@@ -168,9 +168,30 @@ After NSE handles one failed operation, the next poll starts with Upstox again.
 
 Never commit `.env`. It is already excluded by `.gitignore`.
 
-## Watchlist state and logs
+## Watchlist state, daily snapshots, and logs
 
-The fixed daily state is stored in `data/state.json`. An official state includes:
+The active day's fixed state is stored in `data/state.json`. Every official
+09:30:01 watchlist is also saved in its own dated file:
+
+```text
+data/
+├── state.json
+└── snapshots/
+    ├── 2026-07-27.json
+    ├── 2026-07-28.json
+    └── 2026-07-29.json
+```
+
+`state.json` is overwritten by the next official trading day and is used for
+same-day restart recovery. Files in `data/snapshots/` are kept separately, so
+each morning's selected stocks and frozen levels remain available by date.
+When a one-time breakout alert is sent, both the active file and that day's
+dated file are updated with `currentPrice`, `alertSent`, and `alertTime`.
+
+Only an official scheduled snapshot is written to `data/snapshots/`.
+`npm run scan-now` is a test and never creates or changes a dated snapshot.
+
+An official state includes:
 
 ```json
 {
