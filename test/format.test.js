@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { formatSnapshot } from "../src/format.js";
+import { formatAlert, formatSnapshot } from "../src/format.js";
 
 test("snapshot contains separate high and low mover tables", () => {
   const message = formatSnapshot(
@@ -17,4 +17,18 @@ test("snapshot contains separate high and low mover tables", () => {
   assert.match(message, /103\.00/);
   assert.match(message, /LOW/);
   assert.match(message, /97\.00/);
+});
+
+test("formats positive and negative alerts with the frozen day level", () => {
+  const positive = formatAlert({ side: "gainer", symbol: "GAIN", reference: 103, currentPrice: 103.05 });
+  const negative = formatAlert({ side: "loser", symbol: "LOSS", reference: 97, currentPrice: 96.95 });
+
+  assert.match(positive, /Positive side/);
+  assert.match(positive, /Stock name: <b>GAIN<\/b>/);
+  assert.match(positive, /Day high: ₹103\.00/);
+  assert.match(positive, /Current price: ₹103\.05/);
+  assert.match(negative, /Negative side/);
+  assert.match(negative, /Stock name: <b>LOSS<\/b>/);
+  assert.match(negative, /Day low: ₹97\.00/);
+  assert.match(negative, /Current price: ₹96\.95/);
 });

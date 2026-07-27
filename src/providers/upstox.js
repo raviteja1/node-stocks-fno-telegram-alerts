@@ -74,7 +74,8 @@ export class UpstoxProvider {
       for (const raw of Object.values(payload.data ?? {})) {
         const instrument = batchByToken.get(raw.instrument_token) ?? batchBySymbol.get(raw.symbol);
         const ltp = Number(raw.last_price);
-        const previousClose = Number(raw.ohlc?.close);
+        const netChange = Number(raw.net_change);
+        const previousClose = Number.isFinite(netChange) ? ltp - netChange : Number(raw.ohlc?.close);
         const high = Number(raw.ohlc?.high);
         const low = Number(raw.ohlc?.low);
         if (

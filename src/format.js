@@ -30,10 +30,10 @@ export function formatSnapshot(movers, capturedAt) {
 export function formatAlert(alert) {
   const high = alert.side === "gainer";
   return [
-    high ? "🚀 <b>DAY-HIGH BREAKOUT</b>" : "🔻 <b>DAY-LOW BREAKDOWN</b>",
+    high ? "🚀 <b>Positive side</b>" : "🔻 <b>Negative side</b>",
     "",
-    `<b>${escapeHtml(alert.symbol)}</b>`,
-    `Snapshot ${high ? "high" : "low"}: ₹${price.format(alert.reference)}`,
+    `Stock name: <b>${escapeHtml(alert.symbol)}</b>`,
+    `Day ${high ? "high" : "low"}: ₹${price.format(alert.reference)}`,
     `Current price: ₹${price.format(alert.currentPrice)}`,
   ].join("\n");
 }

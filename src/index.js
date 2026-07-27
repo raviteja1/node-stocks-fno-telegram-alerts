@@ -13,12 +13,12 @@ try {
   const config = loadConfig();
   const nse = new NseProvider();
   const upstox = config.upstoxAccessToken ? new UpstoxProvider(config.upstoxAccessToken) : null;
-  const provider =
-    config.marketDataProvider === "nse"
-      ? nse
-      : config.marketDataProvider === "upstox"
-        ? upstox
-        : new FallbackProvider(nse, upstox);
+  const provider = upstox
+    ? new FallbackProvider(upstox, nse, {
+        primaryName: "Upstox",
+        fallbackName: "NSE",
+      })
+    : nse;
   const service = new AlertService({
     config,
     provider,

@@ -13,7 +13,7 @@ test("NSE provider bootstraps cookies and maps F&O mover responses", async () =>
     const isGainers = String(url).includes("index=gainers");
     return Response.json({
       FOSec: {
-        timestamp: "22-Jul-2026 09:30:30",
+        timestamp: "22-Jul-2026 09:30:00",
         data: [
           {
             symbol: isGainers ? "RELIANCE" : "TCS",

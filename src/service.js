@@ -23,7 +23,12 @@ export class AlertService {
     if (instruments.length === 0) throw new Error("F&O equity universe is empty");
     const quotes = await this.provider.getQuotes(instruments);
     const movers = selectMovers(quotes, this.config.topCount);
-    if (!movers.gainers.length || !movers.losers.length) throw new Error("Could not produce both mover lists from the quote response");
+    if (!movers.gainers.length || !movers.losers.length) {
+      throw new Error(
+        `Could not produce both mover lists from ${quotes.length} usable quotes ` +
+          `(${movers.gainers.length} gainers, ${movers.losers.length} losers)`,
+      );
+    }
 
     const state = { day, capturedAt: new Date().toISOString(), watchlist: createWatchlist(movers) };
     await this.store.save(state);
