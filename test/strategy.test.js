@@ -21,7 +21,7 @@ test("gainer alerts above the captured high and only once after marking sent", (
   assert.equal(watchlist[0].capturedHigh, capturedHigh);
   assert.equal(watchlist[0].currentPrice, 111);
   assert.equal(watchlist[0].alertSent, true);
-  assert.equal(watchlist[0].alertTime, "2026-07-22T05:00:00Z");
+  assert.equal(watchlist[0].alertTime, "2026-07-22T10:30:00.000+05:30");
 });
 
 test("loser alerts below the captured low and only once after marking sent", () => {
@@ -34,5 +34,5 @@ test("loser alerts below the captured low and only once after marking sent", () 
   markAlertSent(alerts[0]);
   assert.equal(detectCrossings(watchlist, [{ key: "A", ltp: 89.8 }]).length, 0);
   assert.equal(watchlist[0].capturedLow, capturedLow);
-  assert.equal(watchlist[0].alertTime, "2026-07-22T05:30:00Z");
+  assert.equal(watchlist[0].alertTime, "2026-07-22T11:00:00.000+05:30");
 });

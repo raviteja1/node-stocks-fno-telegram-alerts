@@ -27,6 +27,41 @@ export function clockValue(date, timezone) {
   return `${p.hour}:${p.minute}:${p.second}`;
 }
 
+export function zoneOffsetMinutes(date, timezone) {
+  const p = zonedParts(date, timezone);
+  const asZoneWallClock = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
+  const actualUtc = date.getTime() - date.getMilliseconds();
+  return Math.round((asZoneWallClock - actualUtc) / 60_000);
+}
+
+// Machine-parseable ISO-8601 string carrying the zone offset (e.g. 2026-07-28T10:05:52.123+05:30).
+export function isoInZone(date = new Date(), timezone = "Asia/Kolkata") {
+  const p = zonedParts(date, timezone);
+  const ms = String(date.getMilliseconds()).padStart(3, "0");
+  const offset = zoneOffsetMinutes(date, timezone);
+  const sign = offset >= 0 ? "+" : "-";
+  const abs = Math.abs(offset);
+  const hh = String(Math.floor(abs / 60)).padStart(2, "0");
+  const mm = String(abs % 60).padStart(2, "0");
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}.${ms}${sign}${hh}:${mm}`;
+}
+
+// Human-friendly date-time in the target zone (e.g. 28 Jul 2026, 10:05:52 am).
+export function readableInZone(value = new Date(), timezone = "Asia/Kolkata") {
+  const parsed = value instanceof Date ? value : new Date(value);
+  const date = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: timezone,
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  }).format(date);
+}
+
 export function weekday(date, timezone) {
   return new Intl.DateTimeFormat("en-US", { timeZone: timezone, weekday: "short" }).format(date);
 }

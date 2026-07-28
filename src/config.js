@@ -1,20 +1,5 @@
 import path from "node:path";
-
-function integer(name, fallback, minimum = 1) {
-  const value = Number.parseInt(process.env[name] ?? String(fallback), 10);
-  if (!Number.isInteger(value) || value < minimum) {
-    throw new Error(`${name} must be an integer >= ${minimum}`);
-  }
-  return value;
-}
-
-function time(name, fallback) {
-  const value = process.env[name] ?? fallback;
-  if (!/^(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d$/.test(value)) {
-    throw new Error(`${name} must use HH:mm:ss format`);
-  }
-  return value;
-}
+import { marketSettings } from "./settings.js";
 
 export function loadConfig() {
   const dryRun = (process.env.DRY_RUN ?? "false").toLowerCase() === "true";
@@ -22,11 +7,7 @@ export function loadConfig() {
     upstoxAccessToken: process.env.UPSTOX_ACCESS_TOKEN?.trim() || null,
     telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
     telegramChatId: process.env.TELEGRAM_CHAT_ID,
-    topCount: integer("TOP_COUNT", 10),
-    pollIntervalMs: integer("POLL_INTERVAL_MS", 5_000, 3_000),
-    snapshotTime: time("SNAPSHOT_TIME", "09:30:01"),
-    marketCloseTime: time("MARKET_CLOSE_TIME", "15:30:00"),
-    timezone: process.env.TIMEZONE ?? "Asia/Kolkata",
+    ...marketSettings,
     dryRun,
     dataDir: path.resolve(process.env.DATA_DIR ?? "./data"),
   };

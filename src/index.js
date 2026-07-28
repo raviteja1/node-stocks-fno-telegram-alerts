@@ -15,6 +15,7 @@ const logger = new Logger(loggingSettings.file);
 
 try {
   const config = loadConfig();
+  logger.timezone = config.timezone;
   const nse = new NseProvider();
   const upstox = config.upstoxAccessToken ? new UpstoxProvider(config.upstoxAccessToken) : null;
   const provider = upstox

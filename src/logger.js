@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { isoInZone } from "./time.js";
 
 function clean(value) {
   if (value instanceof Error) {
@@ -9,13 +10,14 @@ function clean(value) {
 }
 
 export class Logger {
-  constructor(file) {
+  constructor(file, timezone = "Asia/Kolkata") {
     this.file = path.resolve(file);
+    this.timezone = timezone;
   }
 
   async write(level, event, details = {}) {
     const record = {
-      timestamp: new Date().toISOString(),
+      timestamp: isoInZone(new Date(), this.timezone),
       level,
       event,
       ...Object.fromEntries(Object.entries(details).map(([key, value]) => [key, clean(value)])),
@@ -28,7 +30,7 @@ export class Logger {
     } catch (error) {
       console.error(
         JSON.stringify({
-          timestamp: new Date().toISOString(),
+          timestamp: isoInZone(new Date(), this.timezone),
           level: "error",
           event: "log_file_write_failed",
           message: error.message,

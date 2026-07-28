@@ -1,3 +1,5 @@
+import { readableInZone } from "./time.js";
+
 const price = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function escapeHtml(value) {
@@ -27,11 +29,11 @@ function table(items, side) {
   return rows.join("\n");
 }
 
-export function formatSnapshot(movers, capturedAt, dataSource, testMode = false) {
+export function formatSnapshot(movers, capturedAt, dataSource, testMode = false, timezone = "Asia/Kolkata") {
   return [
     testMode ? "⚠️ <b>TEST SNAPSHOT — NOT THE 09:30:01 OFFICIAL WATCHLIST</b>" : null,
     `<b>F&amp;O morning snapshot</b>`,
-    escapeHtml(capturedAt),
+    `${escapeHtml(readableInZone(capturedAt, timezone))} IST`,
     dataSource ? `<b>Data source:</b> ${escapeHtml(dataSource)}` : null,
     "",
     "<b>Top gainers</b>",

@@ -8,7 +8,7 @@ Suggested GitHub repository name: **`fno-telegram-breakout-alerts`**.
 
 | Requirement | Implementation |
 | --- | --- |
-| Fetch top F&O gainers and losers at 09:30:01 | Trading-day scheduler runs at `SNAPSHOT_TIME=09:30:01` in `Asia/Kolkata` |
+| Fetch top F&O gainers and losers at 09:30:01 | Trading-day scheduler runs at `snapshotTime: "09:30:01"` in `Asia/Kolkata` (see `src/settings.js`) |
 | Prepare separate tables | One gainers table and one losers table are sent in the morning Telegram message |
 | Show gainers' day high | The snapshot high appears in the gainers table |
 | Show losers' day low | The snapshot low appears in the losers table |
@@ -21,7 +21,7 @@ Suggested GitHub repository name: **`fno-telegram-breakout-alerts`**.
 | Primary market-data source | Official Upstox quotes using a read-only, one-year Analytics Token |
 | Retry and last-resort fallback | Retry Upstox three times by default, then use unofficial NSE for that operation |
 | Provider visibility | Morning and source-change Telegram messages identify Upstox or NSE |
-| Configurable list size | `TOP_COUNT` controls each table independently; `10` means 10 gainers and 10 losers |
+| Configurable list size | `topCount` in `src/settings.js` controls each table independently; `10` means 10 gainers and 10 losers |
 
 The saved high/low is the value captured at the snapshot time. It remains fixed for that day's breakout test; it is not continuously moved to the latest high or low.
 
@@ -138,20 +138,23 @@ UPSTOX_ACCESS_TOKEN=
 TELEGRAM_BOT_TOKEN=1234567890:replace_with_real_token
 TELEGRAM_CHAT_ID=@replace_with_channel_username
 
-TOP_COUNT=10
-POLL_INTERVAL_MS=5000
-SNAPSHOT_TIME=09:30:01
-MARKET_CLOSE_TIME=15:30:00
-TIMEZONE=Asia/Kolkata
 DRY_RUN=true
 DATA_DIR=./data
 ```
 
 There is no provider-mode setting. The application always selects Upstox first when `UPSTOX_ACCESS_TOKEN` exists. NSE is only the final fallback when Upstox fails or the token is missing.
 
-Retry configuration is intentionally kept out of `.env`. Edit `src/settings.js` if it needs to change:
+Market timing and list settings are intentionally kept out of `.env` as constants. Edit `src/settings.js` if they need to change:
 
 ```js
+export const marketSettings = Object.freeze({
+  topCount: 10,
+  pollIntervalMs: 5_000,
+  snapshotTime: "09:30:01",
+  marketCloseTime: "15:30:00",
+  timezone: "Asia/Kolkata",
+});
+
 export const marketDataSettings = Object.freeze({
   upstoxRetryAttempts: 3,
   upstoxRetryDelayMs: 1_000,
@@ -160,10 +163,10 @@ export const marketDataSettings = Object.freeze({
 
 After NSE handles one failed operation, the next poll starts with Upstox again.
 
-`TOP_COUNT` is the number of stocks in each section, not the combined total:
+`topCount` (in `src/settings.js`) is the number of stocks in each section, not the combined total:
 
-- `TOP_COUNT=5` sends 5 gainers and 5 losers.
-- `TOP_COUNT=10` sends 10 gainers and 10 losers.
+- `topCount: 5` sends 5 gainers and 5 losers.
+- `topCount: 10` sends 10 gainers and 10 losers.
 - Any whole number of at least 1 is accepted, subject to the number of valid quotes returned by the provider.
 
 Never commit `.env`. It is already excluded by `.gitignore`.
@@ -196,7 +199,7 @@ An official state includes:
 ```json
 {
   "snapshotTime": "09:30:01",
-  "snapshotRequestedAt": "2026-07-22T04:00:01.000Z",
+  "snapshotRequestedAt": "2026-07-22T09:30:01.000+05:30",
   "officialSnapshot": true
 }
 ```
@@ -213,7 +216,7 @@ Each watchlist row contains:
   "capturedLow": null,
   "currentPrice": 385.75,
   "alertSent": true,
-  "alertTime": "2026-07-22T04:44:32.000Z"
+  "alertTime": "2026-07-22T10:14:32.000+05:30"
 }
 ```
 

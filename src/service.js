@@ -1,6 +1,6 @@
 import { createWatchlist, detectCrossings, markAlertSent, normalizeWatchlist, selectMovers } from "./strategy.js";
 import { formatAlert, formatDataSourceStatus, formatSnapshot } from "./format.js";
-import { clockValue, dateKey, isWeekday, msUntilClock, scheduledRunDelay } from "./time.js";
+import { clockValue, dateKey, isoInZone, isWeekday, msUntilClock, scheduledRunDelay } from "./time.js";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const escapeHtml = (value) => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
@@ -39,7 +39,7 @@ export class AlertService {
 
     this.running = true;
     const day = dateKey(now, this.config.timezone);
-    const snapshotRequestedAt = now.toISOString();
+    const snapshotRequestedAt = isoInZone(now, this.config.timezone);
     const snapshotRequestTime = clockValue(now, this.config.timezone);
     if (!force && snapshotRequestTime !== this.config.snapshotTime) {
       throw new Error(
@@ -61,7 +61,7 @@ export class AlertService {
       day,
       snapshotTime: this.config.snapshotTime,
       snapshotRequestedAt,
-      capturedAt: new Date().toISOString(),
+      capturedAt: isoInZone(new Date(), this.config.timezone),
       officialSnapshot: !force,
       watchlist: createWatchlist(movers),
     };
@@ -77,7 +77,9 @@ export class AlertService {
       snapshotRequestTime,
     });
     this.lastDataSource = this.dataSource();
-    await this.notifier.send(formatSnapshot(movers, state.capturedAt, this.lastDataSource, force));
+    await this.notifier.send(
+      formatSnapshot(movers, state.capturedAt, this.lastDataSource, force, this.config.timezone),
+    );
     await this.monitorState(state, { force, persistState: !force });
   }
 
